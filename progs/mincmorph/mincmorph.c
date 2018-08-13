@@ -47,7 +47,7 @@ char    *KERN_names[] = { "NULL", "2D04", "2D08", "3D06", "3D26" };
 typedef enum {
    UNDEF = 0,
    BINARISE, CLAMP, PAD, ERODE, DILATE, MDILATE,
-   MFILTER, OPEN, CLOSE, LPASS, HPASS, CONVOLVE, 
+   MEDFILTER, MAXFILTER, MINFILTER, OPEN, CLOSE, LPASS, HPASS, CONVOLVE, 
    DISTANCE, GROUP, READ_KERNEL, WRITE, LCORR
    } op_types;
 
@@ -83,6 +83,8 @@ char     successive_help[] = "Successive operations (Maximum: 100) \
 \n\tD - dilation \
 \n\tM - median dilation \
 \n\tN - median filter \
+\n\tA - maximum filter \
+\n\tU - minimum filter \
 \n\tO - open \
 \n\tC - close \
 \n\tL - lowpass filter \
@@ -162,6 +164,10 @@ ArgvInfo argTable[] = {
     "do a single median dilation"},
    {"-median_filter", ARGV_CONSTANT, (char *)"N", (char *)&succ_txt,
     "do a single median filter"},
+   {"-max_filter", ARGV_CONSTANT, (char *)"A", (char *)&succ_txt,
+    "do a single max filter"},
+   {"-min_filter", ARGV_CONSTANT, (char *)"U", (char *)&succ_txt,
+    "do a single min filter"},
    {"-open", ARGV_CONSTANT, (char *)"O", (char *)&succ_txt,
     "open:            dilation(erosion(X))"},
    {"-close", ARGV_CONSTANT, (char *)"C", (char *)&succ_txt,
@@ -323,9 +329,17 @@ int main(int argc, char *argv[])
          break;
 
       case 'N':
-         op->type = MFILTER;
+         op->type = MEDFILTER;
          break;
-
+      
+      case 'A':
+         op->type = MAXFILTER;
+         break;
+      
+      case 'U':
+         op->type = MINFILTER;
+         break;
+      
       case 'O':
          op->type = OPEN;
          break;
@@ -496,8 +510,16 @@ int main(int argc, char *argv[])
          volume = median_dilation_kernel(kernel, volume);
          break;
 
-      case MFILTER:
-         volume = median_filter_kernel(kernel, volume);
+      case MEDFILTER: ;
+         volume = m_filter_kernel(kernel, volume, 0);
+         break;
+      
+      case MAXFILTER:
+         volume = m_filter_kernel(kernel, volume, 1);
+         break;
+
+      case MINFILTER:
+         volume = m_filter_kernel(kernel, volume, 2);
          break;
 
       case OPEN:

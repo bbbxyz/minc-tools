@@ -10,6 +10,7 @@ extern int verbose;
 void     split_kernel(Kernel * K, Kernel * k1, Kernel * k2);
 int      compare_ints(const void *a, const void *b);
 int      compare_groups(const void *a, const void *b);
+int      compare_reals(const void *a, const void *b);
 
 /* structure for group information */
 typedef struct {
@@ -21,22 +22,18 @@ typedef group_info_struct *Group_info;
 
 int compare_ints(const void *a, const void *b)
 {
-   return (*(const int *)a - *(const int *)b);
+   return COMPARE( *(const int *) a, *(const int *) b);
    }
 
 int compare_groups(const void *a, const void *b)
 {
-   return (*(const Group_info *) b)->count - (*(const Group_info *) a)->count;
+   return  COMPARE( (*(const Group_info *) b)->count, (*(const Group_info *) a)->count );
    }
 
 int compare_reals(const void* a, const void* b)
 {
-   return (*(Real *)a - *(Real *)b);
-}
-int compare_unsigned_ints(const void* a, const void* b)
-{
-   return (*(unsigned int *)a - *(unsigned int *)b);
-}
+   return COMPARE( *(VIO_Real *)a, *(VIO_Real *)b );
+   }
 
 void split_kernel(Kernel * K, Kernel * k1, Kernel * k2)
 {
@@ -305,7 +302,7 @@ VIO_Volume  erosion_kernel(Kernel * K, VIO_Volume vol)
    if(verbose){
       fprintf(stdout, "Erosion kernel\n");
    }
-   get_volume_sizes(*vol, sizes);
+   get_volume_sizes(vol, sizes);
    initialize_progress_report(&progress, FALSE, sizes[2], "Erosion");
 
    /* copy the volume */
@@ -384,47 +381,76 @@ VIO_Volume  convolve_kernel(Kernel * K, VIO_Volume vol)
    return (vol);
    }
 
-Volume  *median_filter_kernel(Kernel * K, Volume * vol)
+/*  perform a median, maximum or minimum filter on a volume
+    0=median, 1=max filter, 2=min filter */
+VIO_Volume  m_filter_kernel(Kernel * K, VIO_Volume vol, int method)
 {
-   int x, y, z, c;
-   int    sizes[MAX_VAR_DIMS];
-   Volume   tmp_vol;
-   progress_struct progress;
-   Real value;
-   Real neighbours[K->nelems];
+   int      x, y, z, c;
+   int      sizes[MAX_VAR_DIMS];
+   VIO_Volume   tmp_vol;
+   VIO_progress_struct progress;
+   VIO_Real   value;
+
+   VIO_Real   neighbours[K->nelems];
+   
 
    if(verbose){
-      fprintf(stdout, "Median filter kernel\n");
+      char * method_s;
+      switch (method){
+        case 0:
+            method_s = "Median";
+            break;
+        case 1:
+            method_s = "Max";
+            break;
+        case 2:
+            method_s = "Min";
+            break;
+      } 
+      fprintf(stdout, "%s filter kernel\n", method_s );
    }
-   get_volume_sizes(*vol, sizes);
-   initialize_progress_report(&progress, FALSE, sizes[2], "Median Filter");
+   get_volume_sizes(vol, sizes);
+   initialize_progress_report(&progress, FALSE, sizes[2], "M Filter");
 
    /* copy the volume */
-   tmp_vol = copy_volume(*vol);
+   tmp_vol = copy_volume(vol);
 
    for(z = -K->pre_pad[2]; z < sizes[0] - K->post_pad[2]; z++){
       for(y = -K->pre_pad[1]; y < sizes[1] - K->post_pad[1]; y++){
          for(x = -K->pre_pad[0]; x < sizes[2] - K->post_pad[0]; x++){
 
             for(c = 0; c < K->nelems; c++){
-               neighbours[c] = get_volume_voxel_value(tmp_vol,
+               neighbours[c] = get_volume_real_value(tmp_vol,
                                               z + K->K[c][2],
                                               y + K->K[c][1],
                                               x + K->K[c][0], 0 + K->K[c][3],
                                               0 + K->K[c][4]);
             }
-            /* find median of our little array */
-            qsort(neighbours, K->nelems, sizeof(Real), &compare_reals);
-            if ( K->nelems % 2 == 1 ){
-               value = neighbours[K->nelems / 2];
-            }
-            else{
-               c = K->nelems / 2;
-               value = (neighbours[c] + neighbours[c-1]) / 2;
-            }
+            /* sort our little array */
+            qsort(&neighbours[0], (size_t) K->nelems, sizeof(VIO_Real), &compare_reals);
             
-            /* store the median value */
-            set_volume_voxel_value(*vol, z, y, x, 0, 0, value);
+            /* median of our little array */
+            if (method==0){
+                if ( K->nelems % 2 == 1 ){
+                    value = neighbours[K->nelems / 2];
+                    }
+                else{
+                   c = K->nelems / 2;
+                   value = (neighbours[c] + neighbours[c-1]) / 2;
+                }
+            }
+
+            /* maximum of our little array */
+            else if(method==1){
+                value = neighbours[K->nelems-1];
+            }
+
+            /* minimum of our little array */
+            else if(method==2){
+                value = neighbours[0];
+            }
+            /* store the median/max/min value */
+            set_volume_real_value(vol, z, y, x, 0, 0, value);
          }
       }
 
