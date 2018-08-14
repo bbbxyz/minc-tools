@@ -178,6 +178,45 @@ else
 fi
 
 
+echo -n Case 14...
+# Test a single median filter
+$MINCMORPH_BIN  -clobber -median_filter mincmorph/test-distance.mnc mincmorphout.mnc
+r14=`$MINCDIFF_BIN -body mincmorph/test-medfilter.mnc mincmorphout.mnc`
+
+if [[ $? != '0' ]]; then
+    echo "Problem with single median filter:" $r14
+    let errors+=1;
+else
+    echo OK
+fi
+
+
+echo -n Case 15...
+# Test a single maximum filter
+$MINCMORPH_BIN  -clobber -max_filter mincmorph/test-distance.mnc mincmorphout.mnc
+r15=`$MINCDIFF_BIN -body mincmorph/test-maxfilter.mnc mincmorphout.mnc`
+
+if [[ $? != '0' ]]; then
+    echo "Problem with single maximum filter:" $r15
+    let errors+=1;
+else
+    echo OK
+fi
+
+
+echo -n Case 16...
+# Test a single minimum filter
+$MINCMORPH_BIN  -clobber -min_filter mincmorph/test-distance.mnc mincmorphout.mnc
+r16=`$MINCDIFF_BIN -body mincmorph/test-minfilter.mnc mincmorphout.mnc`
+
+if [[ $? != '0' ]]; then
+    echo "Problem with single minimum filter:" $r16
+    let errors+=1;
+else
+    echo OK
+fi
+
+
 if [[ $errors = "0" ]]; then
     echo "No errors detected."
 else
